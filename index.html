@@ -331,8 +331,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
 .ex-view-series-section{margin-bottom:16px;}
 .ex-view-series-label{font-size:9px;font-weight:700;color:rgba(52,211,153,.5);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:8px;}
 .ex-view-series-dots{display:flex;gap:8px;}
-.ex-view-series-dot{flex:1;height:36px;border-radius:9px;border:1.5px solid var(--b2);background:var(--c2);cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);}
-.ex-view-series-dot.done{background:var(--em);border-color:var(--em);color:#050F0A;box-shadow:0 0 10px rgba(52,211,153,.3);}
+.ex-view-series-dot{flex:1;min-height:44px;border-radius:9px;border:1.5px solid var(--b2);background:var(--c2);cursor:pointer;transition:all .18s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;}
+.ex-view-series-dot.done{background:var(--em);border-color:var(--em);box-shadow:0 0 10px rgba(52,211,153,.3);}
+.ex-dot-num{font-size:10px;font-weight:700;color:var(--t3);}
+.ex-dot-check{font-size:10px;font-weight:800;color:#050F0A;line-height:1;}
+.ex-dot-kg{font-size:8px;font-weight:700;color:rgba(5,15,10,.75);line-height:1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;text-align:center;}
 .ex-view-tip{font-size:11px;color:var(--t2);line-height:1.55;border-left:2px solid var(--em);padding-left:9px;margin-bottom:14px;}
 .ex-view-yt{display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:6px 11px;font-size:11px;font-weight:600;color:var(--red);margin-bottom:16px;}
 .ex-view-nav{display:flex;gap:8px;margin-top:4px;}
@@ -730,7 +733,7 @@ function renderSingleEx(di,d,exs,idx){
   var pct=Math.round((idx/total)*100);
   var isLast=idx===total-1;
   var serKey=d+'_'+ex.id;
-  var done=seriesDone[serKey]||0;
+  var done=(seriesDone[serKey]||[]).length;
   var h='<div class="ex-view-progress-bar"><div class="ex-view-progress-fill" style="width:'+pct+'%"></div></div>';
   h+='<div class="ex-view-counter">Exercicio <span>'+(idx+1)+'</span> de <span>'+total+'</span></div>';
   h+='<div class="ex-view-card">';
@@ -752,9 +755,17 @@ function renderSingleEx(di,d,exs,idx){
   h+='<div class="ex-view-carga-unit">kg</div>';
   h+='<button class="ex-view-carga-btn" id="btn-plus" type="button">+</button>';
   h+='</div></div>';
+  var sArr=seriesDone[serKey]||[];
   h+='<div class="ex-view-series-section"><div class="ex-view-series-label">Series concluidas</div>';
   h+='<div class="ex-view-series-dots">';
-  for(var si=0;si<ex.series;si++){h+='<div class="ex-view-series-dot'+(si<done?' done':'')+'" data-si="'+si+'">'+( si<done?'&#10003;':(si+1))+'</div>';}
+  for(var si=0;si<ex.series;si++){
+    var isDone=si<sArr.length;
+    var dotKg=isDone?sArr[si].kg:'';
+    h+='<div class="ex-view-series-dot'+(isDone?' done':'')+'" data-si="'+si+'">';
+    if(isDone){h+='<div class="ex-dot-check">&#10003;</div><div class="ex-dot-kg">'+dotKg+'</div>';}
+    else{h+='<div class="ex-dot-num">'+(si+1)+'</div>';}
+    h+='</div>';
+  }
   h+='</div></div>';
   if(ex.tip)h+='<div class="ex-view-tip">'+ex.tip+'</div>';
   h+='<a class="ex-view-yt" href="'+ex.yt+'" target="_blank" rel="noopener"><svg width="12" height="12" viewBox="0 0 24 24" fill="#F87171"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.1c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.2v2c0 2.1.3 4.2.3 4.2s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.5 21.6 12 21.6 12 21.6s4.2 0 6.8-.2c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.2v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.3l8.1 3.6-8.1 3.6z"/></svg>Ver no YouTube</a>';
@@ -792,7 +803,17 @@ function renderSingleEx(di,d,exs,idx){
   wrap.querySelectorAll('.ex-view-series-dot').forEach(function(dot){
     dot.addEventListener('click',function(){
       var si=parseInt(this.getAttribute('data-si'));
-      seriesDone[serKey]=si<done?si:(si+1);
+      var arr=seriesDone[serKey]||[];
+      var curKg=inp?inp.value:lod(ex.id+'-kg','');
+      if(si<arr.length){
+        // undo: remove from si onwards
+        arr=arr.slice(0,si);
+      } else {
+        // mark series si as done with current kg
+        while(arr.length<=si)arr.push({kg:curKg});
+        arr[si]={kg:curKg};
+      }
+      seriesDone[serKey]=arr;
       renderSingleEx(di,d,exs,idx);
     });
   });
@@ -857,7 +878,10 @@ function saveDay(d){
     var inp=document.getElementById('inp-'+ex.id);
     var kg=inp?inp.value:lod(ex.id+'-kg','');
     if(inp)sto(ex.id+'-kg',kg);
-    return {id:ex.id,name:ex.name,type:ex.type,series:ex.series,reps:ex.reps,rest:ex.rest,tip:ex.tip,tech:ex.tech,kg:kg};
+    var serKey=d+'_'+ex.id;
+    var serArr=seriesDone[serKey]||[];
+    var seriesDoneKgs=serArr.map(function(s){return s.kg;});
+    return {id:ex.id,name:ex.name,type:ex.type,series:ex.series,reps:ex.reps,rest:ex.rest,tip:ex.tip,tech:ex.tech,kg:kg,seriesDoneKgs:seriesDoneKgs,seriesDoneCount:serArr.length};
   });
   var key=todayKey(),saved=lod('saved-days',{});
   var di=DAY_NAMES.indexOf(d);
@@ -920,7 +944,13 @@ function buildHistWorkoutView(e){
       h+='<div class="hist-ex-stat"><div class="hist-ex-stat-val">'+ex.series+'x</div><div class="hist-ex-stat-lbl">Series</div></div>';
       h+='<div class="hist-ex-stat"><div class="hist-ex-stat-val">'+ex.reps+'</div><div class="hist-ex-stat-lbl">Reps</div></div>';
       h+='<div class="hist-ex-stat"><div class="hist-ex-stat-val">'+ex.rest+'</div><div class="hist-ex-stat-lbl">Pausa</div></div>';
-      h+='<div class="hist-ex-stat"><div class="hist-ex-stat-val hist-ex-stat-kg">'+(kg?kg+' kg':'--')+'</div><div class="hist-ex-stat-lbl">Carga</div></div>';
+      var kgDisplay='--';
+      if(ex.seriesDoneKgs&&ex.seriesDoneKgs.length){
+        var uKgs=[],seen={};
+        ex.seriesDoneKgs.forEach(function(k){if(k&&!seen[k]){seen[k]=1;uKgs.push(k);}});
+        kgDisplay=uKgs.length?uKgs.join(' / ')+' kg':'--';
+      } else if(kg){kgDisplay=kg+' kg';}
+      h+='<div class="hist-ex-stat"><div class="hist-ex-stat-val hist-ex-stat-kg" style="font-size:clamp(9px,2.8vw,11px);">'+kgDisplay+'</div><div class="hist-ex-stat-lbl">Carga</div></div>';
       h+='</div>';
       if(ex.tip)h+='<div class="hist-ex-tip">'+ex.tip+'</div>';
       if(ex.tech)h+='<div class="hist-tech-badge">'+ex.tech+'</div>';
@@ -942,8 +972,13 @@ function renderHistContainer(){
     var exercises=e.snapshot?e.snapshot:(DATA[e.day]||[]);
     var totalKg=0;
     exercises.forEach(function(x){
-      var kg=e.snapshot?x.kg:lod(x.id+'-kg','0');
-      totalKg+=(parseFloat(kg)||0)*(x.series||0);
+      if(x.seriesDoneKgs&&x.seriesDoneKgs.length){
+        x.seriesDoneKgs.forEach(function(kg){totalKg+=parseFloat(kg)||0;});
+      } else {
+        var kg=e.snapshot?x.kg:lod(x.id+'-kg','0');
+        var cnt=x.seriesDoneCount||x.series||0;
+        totalKg+=(parseFloat(kg)||0)*cnt;
+      }
     });
     var badge=e.snapshot
       ?'<span class="hb-done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Salvo</span>'
@@ -992,7 +1027,25 @@ function renderDash(){
   var saved=lod('saved-days',{}),allKeys=Object.keys(saved);
   var el=document.getElementById('d-dias');if(el)el.textContent=allKeys.length;
   var totalKg=0;
-  allKeys.forEach(function(k){var d=saved[k].day;if(DATA[d])DATA[d].forEach(function(ex){totalKg+=(parseFloat(lod(ex.id+'-kg','0'))||0)*ex.series;});});
+  allKeys.forEach(function(k){
+    var entry=saved[k];
+    if(entry.snapshot&&entry.snapshot.length){
+      entry.snapshot.forEach(function(ex){
+        if(ex.seriesDoneKgs&&ex.seriesDoneKgs.length){
+          ex.seriesDoneKgs.forEach(function(kg){totalKg+=parseFloat(kg)||0;});
+        } else {
+          var kg=parseFloat(ex.kg)||0;
+          var cnt=ex.seriesDoneCount||0;
+          totalKg+=cnt>0?kg*cnt:kg*(ex.series||0);
+        }
+      });
+    } else {
+      var d=entry.day;
+      if(DATA[d])DATA[d].forEach(function(ex){
+        totalKg+=(parseFloat(lod(ex.id+'-kg','0'))||0)*ex.series;
+      });
+    }
+  });
   var ec=document.getElementById('d-carga');if(ec)ec.textContent=Math.round(totalKg)+' kg';
   var streak=0,dd=new Date();
   for(var i=0;i<60;i++){var k=dd.getFullYear()+'-'+(dd.getMonth()+1)+'-'+dd.getDate();if(saved[k]){streak++;dd.setDate(dd.getDate()-1);}else break;}
